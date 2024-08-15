@@ -10,6 +10,12 @@ import type { Range } from '../core/selection.js';
 
 const debug = logger('quill:keyboard');
 
+const isSafari =
+  navigator.vendor.match(/apple/i) &&
+  !navigator.userAgent.match(/crios/i) &&
+  !navigator.userAgent.match(/fxios/i) &&
+  !navigator.userAgent.match(/Opera|OPT\//);
+
 const SHORTKEY = /Mac/i.test(navigator.platform) ? 'metaKey' : 'ctrlKey';
 
 export interface Context {
@@ -51,10 +57,12 @@ interface NormalizedBinding extends Omit<BindingObject, 'key' | 'shortKey'> {
 
 interface KeyboardOptions {
   bindings: Record<string, Binding>;
+  userAgentDevice?: string;
 }
 
 interface KeyboardOptions {
   bindings: Record<string, Binding>;
+  userAgentDevice?: string;
 }
 
 class Keyboard extends Module<KeyboardOptions> {
@@ -171,7 +179,59 @@ class Keyboard extends Module<KeyboardOptions> {
   }
 
   listen() {
-    this.quill.root.addEventListener('keydown', (evt) => {
+    // [Hanho] Recieving this.options.userAgentDevice which can be undefined | 'ios' | 'android' for making exceptions
+    // Because each of the device can have different Korean problem
+    const koreanCheck = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/;
+    let isLastKeyKorean = false;
+    let isLastKeyKoreanAndEnterOrBackspace = false;
+
+    let listeningEventName = 'keydown';
+
+    // [Hanho] Android Webview has Unidentified key event issue
+    // Related Article: https://circus7.tistory.com/6
+    if (this.options.userAgentDevice === 'android') {
+      listeningEventName = 'input';
+    }
+
+    this.quill.root.addEventListener(listeningEventName, (evt: any) => {
+      // [Hanho] Prevent Korean Problem in IOS Safari
+      // The idea is, test evt.key is korean and put zero-width space at the first
+      // iOS safari bug: Korean's composition event not fired at all, and returning isComposing as false
+      // Related Article: https://sir.kr/cm_free/1557134
+      if (this.options.userAgentDevice === 'ios' || isSafari) {
+        if (
+          isLastKeyKorean &&
+          (evt.key === 'Enter' || evt.key === 'Backspace') &&
+          !isLastKeyKoreanAndEnterOrBackspace
+        ) {
+          isLastKeyKoreanAndEnterOrBackspace = true; // Have to remove duplication
+          return;
+        }
+        isLastKeyKoreanAndEnterOrBackspace = false;
+        isLastKeyKorean = koreanCheck.test(evt.key);
+
+        if (isLastKeyKorean) {
+          const blot = Quill.find(evt.target as HTMLElement, true);
+          if (blot && blot.scroll !== this.quill.scroll) return;
+          const range = this.quill.getSelection();
+          if (range == null || !this.quill.hasFocus()) return;
+          const [line] = this.quill.getLine(range.index);
+          const [leafStart] = this.quill.getLeaf(range.index);
+          if (
+            leafStart &&
+            line &&
+            (leafStart.domNode as HTMLElement).tagName === 'BR' &&
+            line.domNode.innerText.length < 2
+          ) {
+            this.quill.insertText(range.index, '\uFEFF', Quill.sources.SILENT); // [Hanho] Insert zero-width space for decomposing
+            setTimeout(() => {
+              this.quill.deleteText(range.index, 1, Quill.sources.SILENT); // [Hanho] Remove zero-width space right away
+            });
+            return;
+          }
+        }
+      }
+
       if (evt.defaultPrevented || evt.isComposing) return;
 
       // evt.isComposing is false when pressing Enter/Backspace when composing in Safari
@@ -187,7 +247,7 @@ class Keyboard extends Module<KeyboardOptions> {
         Keyboard.match(evt, binding),
       );
       if (matches.length === 0) return;
-      // @ts-expect-error
+
       const blot = Quill.find(evt.target, true);
       if (blot && blot.scroll !== this.quill.scroll) return;
       const range = this.quill.getSelection();

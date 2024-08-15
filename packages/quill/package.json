@@ -1,9 +1,9 @@
 {
-  "name": "quill",
+  "name": "@hanhokim/glit-quill",
   "version": "2.0.2",
-  "description": "Your powerful, rich text editor",
-  "author": "Jason Chen <jhchen7@gmail.com>",
-  "homepage": "https://quilljs.com",
+  "description": "Quill.js fork for personal project usage.",
+  "author": "",
+  "homepage": "https://github.com/kim-hanho/quill",
   "main": "quill.js",
   "type": "module",
   "dependencies": {
@@ -62,11 +62,11 @@
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/slab/quill.git",
+    "url": "git+https://github.com/kim-hanho/quill.git",
     "directory": "packages/quill"
   },
   "bugs": {
-    "url": "https://github.com/slab/quill/issues"
+    "url": ""
   },
   "prettier": {
     "singleQuote": true
@@ -85,15 +85,7 @@
     "test:fuzz": "vitest --config test/fuzz/vitest.config.ts",
     "test:e2e": "playwright test"
   },
-  "keywords": [
-    "quill",
-    "editor",
-    "rich text",
-    "wysiwyg",
-    "operational transformation",
-    "ot",
-    "framework"
-  ],
+  "keywords": [],
   "engines": {
     "npm": ">=8.2.3"
   },
